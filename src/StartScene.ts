@@ -40,7 +40,7 @@ export default class StartScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // Steuerung (Tastenbefehle)
-        const controlsText = `STEUERUNG:\n\n< > PFEILTASTEN: Bewegen\nSHIFT: Turbo`;
+        const controlsText = `STEUERUNG:\n\n< > PFEILTASTEN: Bewegen\nSHIFT: Turbo\nM: Sound An/Aus\nSPACE: Pause\nQ: Beenden (ohne Speichern)`;
         this.add.text(400, 430, controlsText, {
             fontSize: '16px',
             color: '#ffffff',
@@ -71,6 +71,13 @@ export default class StartScene extends Phaser.Scene {
         if (this.input.keyboard) {
             this.input.keyboard.once('keydown-SPACE', () => {
                 this.scene.start('GameScene', { bgKey: this.bgKey });
+            });
+            
+            // M-Taste für Mute
+            this.input.keyboard.on('keydown-M', () => {
+                const isMuted = !this.sound.mute;
+                this.sound.mute = isMuted;
+                this.registry.set('isMuted', isMuted);
             });
         }
     }

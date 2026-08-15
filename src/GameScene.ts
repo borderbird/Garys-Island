@@ -28,6 +28,10 @@ export default class GameScene extends Phaser.Scene {
         174.61, 0, 207.65, 174.61, 0, 261.63, 311.13, 0
     ];
 
+    private isQuitPromptActive: boolean = false;
+    private quitPromptText!: Phaser.GameObjects.Text;
+    private isPaused: boolean = false;
+    private pausedText!: Phaser.GameObjects.Text;
     private bgKey: string = 'bg1';
 
     constructor() {
@@ -57,6 +61,10 @@ export default class GameScene extends Phaser.Scene {
         this.score = 0;
         this.lives = 5;
         this.level = 1;
+        this.isQuitPromptActive = false;
+        this.isPaused = false;
+        this.bgmTimer = null;
+        this.isTurboActive = false;
 
         const highscore = localStorage.getItem('astroBenzHighscore') || '0';
 
@@ -71,6 +79,26 @@ export default class GameScene extends Phaser.Scene {
         graphics.fillStyle(0xffffff, 1);
         graphics.fillRect(0, 0, 6, 6);
         graphics.generateTexture('pixel', 6, 6);
+
+        // Pause-Text (unsichtbar am Start)
+        this.pausedText = this.add.text(400, 300, 'PAUSED', {
+            fontSize: '48px',
+            color: '#ffffff',
+            fontFamily: '"Press Start 2P"',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            padding: { x: 20, y: 20 }
+        }).setOrigin(0.5).setDepth(100).setVisible(false);
+
+        // Quit-Prompt-Text (unsichtbar am Start)
+        this.quitPromptText = this.add.text(400, 300, 'PRESS Q AGAIN TO QUIT\n\nPRESS ANY OTHER KEY\nTO CONTINUE', {
+            fontSize: '24px',
+            color: '#ffffff',
+            fontFamily: '"Press Start 2P"',
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            padding: { x: 20, y: 20 },
+            align: 'center',
+            lineSpacing: 15
+        }).setOrigin(0.5).setDepth(100).setVisible(false);
 
         // Spieler erstellen und Physik aktivieren
         this.player = this.physics.add.sprite(400, 550, 'player');
@@ -100,12 +128,76 @@ export default class GameScene extends Phaser.Scene {
             this.input.keyboard.once('keydown', () => {
                 this.startBackgroundMusic();
             });
+
+            // Zentraler Keydown Handler für Mute, Pause und Quit
+            this.input.keyboard.on('keydown', (event: KeyboardEvent) => {
+                if (this.lives <= 0) return; // Wenn Game Over, nichts tun
+
+                const key = event.key.toLowerCase();
+
+                // 1. Mute Toggle
+                if (key === 'm') {
+                    const isMuted = !this.sound.mute;
+                    this.sound.mute = isMuted;
+                    this.registry.set('isMuted', isMuted);
+                }
+
+                // 2. Quit Prompt Logik
+                if (this.isQuitPromptActive) {
+                    if (key === 'q') {
+                        this.quitGame();
+                    } else {
+                        // Abbrechen und Spiel fortsetzen
+                        this.isQuitPromptActive = false;
+                        this.quitPromptText.setVisible(false);
+                        this.isPaused = false;
+                        this.physics.resume();
+                        this.tweens.resumeAll();
+                        if (this.spawnTimerEvent) this.spawnTimerEvent.paused = false;
+                        if (this.bgmTimer) this.bgmTimer.paused = false;
+                    }
+                    return; // Event wurde verarbeitet
+                }
+
+                // 3. Wenn nicht im Quit Prompt
+                if (key === 'q') {
+                    this.isQuitPromptActive = true;
+                    this.quitPromptText.setVisible(true);
+
+                    if (this.isPaused) {
+                        this.pausedText.setVisible(false);
+                    } else {
+                        this.isPaused = true;
+                        this.physics.pause();
+                        this.tweens.pauseAll();
+                        if (this.spawnTimerEvent) this.spawnTimerEvent.paused = true;
+                        if (this.bgmTimer) this.bgmTimer.paused = true;
+                    }
+                } else if (key === ' ' || event.code === 'Space') {
+                    // Pause Toggle
+                    this.isPaused = !this.isPaused;
+
+                    if (this.isPaused) {
+                        this.physics.pause();
+                        this.tweens.pauseAll();
+                        if (this.spawnTimerEvent) this.spawnTimerEvent.paused = true;
+                        if (this.bgmTimer) this.bgmTimer.paused = true;
+                        this.pausedText.setVisible(true);
+                    } else {
+                        this.physics.resume();
+                        this.tweens.resumeAll();
+                        if (this.spawnTimerEvent) this.spawnTimerEvent.paused = false;
+                        if (this.bgmTimer) this.bgmTimer.paused = false;
+                        this.pausedText.setVisible(false);
+                    }
+                }
+            });
         }
     }
 
     // 3. Game-Loop (wird 60x pro Sekunde aufgerufen)
     update() {
-        if (this.lives <= 0) return; // Spiel ist vorbei, nichts mehr tun
+        if (this.lives <= 0 || this.isPaused) return; // Spiel ist vorbei oder pausiert, nichts mehr tun
 
         // Spielerbewegung mit optionalem Turbo
         // Turbo ist nur aktiv, wenn SHIFT gedrückt wird UND wir uns bewegen
@@ -310,7 +402,19 @@ export default class GameScene extends Phaser.Scene {
         });
     }
 
+    private quitGame() {
+        this.lives = 0; // Stoppt Update-Loop und Musik
+        this.physics.pause();
+        if (this.spawnTimerEvent) this.spawnTimerEvent.remove();
+        if (this.bgmTimer) this.bgmTimer.remove();
+        
+        // Zurück zum Startbildschirm (OHNE Highscore-Speicherung)
+        this.scene.start('StartScene');
+    }
+
     private playGameOverChiptune() {
+        if (this.registry.get('isMuted')) return;
+
         // Audio Context des Browsers abrufen
         const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
         
@@ -376,6 +480,8 @@ export default class GameScene extends Phaser.Scene {
             this.bgmTimer?.remove();
             return;
         }
+
+        if (this.registry.get('isMuted')) return;
 
         const freq = this.melody[this.noteIndex];
         this.noteIndex = (this.noteIndex + 1) % this.melody.length;
