@@ -111,6 +111,58 @@ export default class AudioController {
         buzz.stop(startTime + 0.8);
     }
 
+    public playShieldCatchSound(scene: Phaser.Scene) {
+        if (scene.registry.get('isMuted')) return;
+
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        let startTime = audioCtx.currentTime;
+
+        // Heller, aufsteigender Arpeggio-Sound
+        const notes = [440.00, 554.37, 659.25, 880.00]; // A4, C#5, E5, A5
+        
+        notes.forEach((freq, index) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'sine'; // Weicherer, magischer Klang
+            osc.frequency.setValueAtTime(freq, startTime + index * 0.1);
+            
+            gain.gain.setValueAtTime(0, startTime + index * 0.1);
+            gain.gain.linearRampToValueAtTime(0.2, startTime + index * 0.1 + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + index * 0.1 + 0.2);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start(startTime + index * 0.1);
+            osc.stop(startTime + index * 0.1 + 0.2);
+        });
+    }
+
+    public playCrashSound(scene: Phaser.Scene) {
+        if (scene.registry.get('isMuted')) return;
+
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const startTime = audioCtx.currentTime;
+
+        // Tiefer, rauer Crash-Sound (Sawtooth + starker Frequenzabfall)
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, startTime);
+        osc.frequency.exponentialRampToValueAtTime(10, startTime + 0.4);
+        
+        gain.gain.setValueAtTime(0.3, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.4);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start(startTime);
+        osc.stop(startTime + 0.4);
+    }
+
     public pause() {
         if (this.bgmTimer) {
             this.bgmTimer.paused = true;

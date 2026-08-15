@@ -18,6 +18,12 @@ export default class GameScene extends Phaser.Scene {
     private audioController!: AudioController;
     private isTurboActive: boolean = false;
 
+    private isShieldActive: boolean = false;
+    private shieldTimerEvent: Phaser.Time.TimerEvent | null = null;
+
+    private isSlowed: boolean = false;
+    private slowdownTimerEvent: Phaser.Time.TimerEvent | null = null;
+
     private isQuitPromptActive: boolean = false;
     private quitPromptText!: Phaser.GameObjects.Text;
     private isPaused: boolean = false;
@@ -38,10 +44,13 @@ export default class GameScene extends Phaser.Scene {
     preload() {
         this.load.image('player', 'assets/player128x128.png');
         this.load.image('star', 'assets/star.png');
+        this.load.image('shield', 'assets/shield.png');
+        this.load.image('pylon', 'assets/pylon.png');
         // bg is loaded in StartScene
         this.load.audio('catchSound', 'assets/catch.wav');
         this.load.audio('missSound', 'assets/miss.wav');
         this.load.audio('turboSound', 'assets/turbo.wav');
+        this.load.audio('pylonSound', 'assets/pylon.wav');
     }
 
     // 2. Spielwelt aufbauen
@@ -55,6 +64,10 @@ export default class GameScene extends Phaser.Scene {
         this.isPaused = false;
         this.audioController = new AudioController();
         this.isTurboActive = false;
+        this.isShieldActive = false;
+        this.shieldTimerEvent = null;
+        this.isSlowed = false;
+        this.slowdownTimerEvent = null;
 
         const highscore = localStorage.getItem('astroBenzHighscore') || '0';
 
@@ -144,6 +157,8 @@ export default class GameScene extends Phaser.Scene {
                         this.physics.resume();
                         this.tweens.resumeAll();
                         if (this.spawnTimerEvent) this.spawnTimerEvent.paused = false;
+                        if (this.shieldTimerEvent) this.shieldTimerEvent.paused = false;
+                        if (this.slowdownTimerEvent) this.slowdownTimerEvent.paused = false;
                         this.audioController.resume();
                     }
                     return; // Event wurde verarbeitet
@@ -161,6 +176,8 @@ export default class GameScene extends Phaser.Scene {
                         this.physics.pause();
                         this.tweens.pauseAll();
                         if (this.spawnTimerEvent) this.spawnTimerEvent.paused = true;
+                        if (this.shieldTimerEvent) this.shieldTimerEvent.paused = true;
+                        if (this.slowdownTimerEvent) this.slowdownTimerEvent.paused = true;
                         this.audioController.pause();
                     }
                 } else if (key === ' ' || event.code === 'Space') {
@@ -171,12 +188,16 @@ export default class GameScene extends Phaser.Scene {
                         this.physics.pause();
                         this.tweens.pauseAll();
                         if (this.spawnTimerEvent) this.spawnTimerEvent.paused = true;
+                        if (this.shieldTimerEvent) this.shieldTimerEvent.paused = true;
+                        if (this.slowdownTimerEvent) this.slowdownTimerEvent.paused = true;
                         this.audioController.pause();
                         this.pausedText.setVisible(true);
                     } else {
                         this.physics.resume();
                         this.tweens.resumeAll();
                         if (this.spawnTimerEvent) this.spawnTimerEvent.paused = false;
+                        if (this.shieldTimerEvent) this.shieldTimerEvent.paused = false;
+                        if (this.slowdownTimerEvent) this.slowdownTimerEvent.paused = false;
                         this.audioController.resume();
                         this.pausedText.setVisible(false);
                     }
@@ -202,7 +223,7 @@ export default class GameScene extends Phaser.Scene {
             this.isTurboActive = false;
         }
 
-        const speed = isTurbo ? 700 : 400; // 700 für Turbo, 400 normal
+        const speed = this.isSlowed ? 200 : (isTurbo ? 700 : 400);
 
         if (this.cursors.left.isDown) {
             this.player.setVelocityX(-speed);
@@ -237,56 +258,100 @@ export default class GameScene extends Phaser.Scene {
     // --- Eigene Spiel-Funktionen ---
 
     private spawnStar() {
-        // Zufällige X-Position zwischen 50 und 750 (Bildschirmbreite vorausgesetzt: 800)
+        // Zufällige X-Position zwischen 50 und 750
         let x = Phaser.Math.Between(50, 750);
-        
-        // Verhindern, dass Zickzack-Sterne aus dem Bild fliegen
         if (this.level >= 2) {
             x = Phaser.Math.Between(150, 650); 
         }
 
-        const star = this.starsGroup.create(x, 0, 'star');
-        star.setScale(0.5);
-        star.setCircle(50, 14, 14); // Hitbox als Kreis anpassen und zentrieren
-
-        // Zickzack-Logik ab Level 2
-        if (this.level >= 2 && Phaser.Math.FloatBetween(0, 1) < 0.3) {
-            star.setData('isZigzag', true);
-            star.setData('startX', x);
-            star.setData('randomOffset', Phaser.Math.FloatBetween(0, Math.PI * 2));
-            star.setTint(0xff0000); // Rot markieren
+        const typeRoll = Phaser.Math.Between(1, 100);
+        let type = 'star';
+        
+        // 10% Chance für Shield, 15% Chance für Pylon
+        if (typeRoll <= 10) {
+            type = 'shield';
+        } else if (typeRoll <= 25) {
+            type = 'pylon';
         }
 
-        // Fällt nach unten (Schwerkraft für Sterne abhängig vom Level)
+        const item = this.starsGroup.create(x, 0, type);
+        item.setData('type', type);
+
+        if (type === 'star') {
+            item.setScale(0.5);
+            item.setCircle(50, 14, 14); 
+            if (this.level >= 2 && Phaser.Math.FloatBetween(0, 1) < 0.3) {
+                item.setData('isZigzag', true);
+                item.setData('startX', x);
+                item.setData('randomOffset', Phaser.Math.FloatBetween(0, Math.PI * 2));
+                item.setTint(0xff0000); 
+            }
+        } else if (type === 'shield') {
+            item.setScale(0.5); // 128x128 -> 64x64
+            item.setCircle(50, 14, 14); 
+            item.setTint(0x00ffff);
+        } else if (type === 'pylon') {
+            item.setScale(0.5); // 128x128 -> 64x64
+            item.setSize(80, 100);
+            item.setOffset(24, 28);
+        }
+
         let minSpeed = 150 + (this.level * 30);
         let maxSpeed = 300 + (this.level * 40);
-        
-        // Obergrenze einfügen, damit es spielbar bleibt
         minSpeed = Math.min(minSpeed, 800);
         maxSpeed = Math.min(maxSpeed, 900);
         
-        star.setVelocityY(Phaser.Math.Between(minSpeed, maxSpeed));
+        item.setVelocityY(Phaser.Math.Between(minSpeed, maxSpeed));
         
-        // Stern-Animation (Rotation)
-        this.tweens.add({
-            targets: star,
-            angle: 360,
-            duration: 2500,
-            repeat: -1
-        });
+        if (type === 'star' || type === 'shield') {
+            this.tweens.add({
+                targets: item,
+                angle: 360,
+                duration: 2500,
+                repeat: -1
+            });
+        }
     }
 
-    private catchStar(_player: any, star: any) {
-        const isZigzag = star.getData('isZigzag');
-        const starX = star.x;
-        const starY = star.y;
-        
-        const points = isZigzag ? 200 : 100;
+    private catchStar(_player: any, item: any) {
+        const type = item.getData('type') || 'star';
+        const itemX = item.x;
+        const itemY = item.y;
+        const isZigzag = item.getData('isZigzag');
 
-        star.destroy(); // Stern verschwindet
+        item.destroy(); 
+
+        if (type === 'shield') {
+            this.activateShield();
+            const emitter = this.add.particles(itemX, itemY, 'pixel', {
+                speed: { min: 100, max: 300 },
+                scale: { start: 1, end: 0 },
+                lifespan: 800,
+                tint: 0x00ffff,
+                emitting: false
+            });
+            emitter.explode(30);
+            this.audioController.playShieldCatchSound(this);
+            return;
+        }
+
+        if (type === 'pylon') {
+            this.hitPylon();
+            const emitter = this.add.particles(itemX, itemY, 'pixel', {
+                speed: { min: 50, max: 200 },
+                scale: { start: 1, end: 0 },
+                lifespan: 600,
+                tint: 0xff8800,
+                emitting: false
+            });
+            emitter.explode(20);
+            return;
+        }
+
+        // Es ist ein Stern
+        const points = isZigzag ? 200 : 100;
         
-        // Partikelexplosion
-        const emitter = this.add.particles(starX, starY, 'pixel', {
+        const emitter = this.add.particles(itemX, itemY, 'pixel', {
             speed: { min: 50, max: 200 },
             scale: { start: 1, end: 0 },
             lifespan: 600,
@@ -296,7 +361,7 @@ export default class GameScene extends Phaser.Scene {
         emitter.explode(15);
         
         // Punktewert-Popup
-        const popup = this.add.text(starX, starY - 20, `+${points}`, {
+        const popup = this.add.text(itemX, itemY - 20, `+${points}`, {
             fontSize: '16px',
             color: isZigzag ? '#ff0000' : '#ffff00',
             fontFamily: '"Press Start 2P"'
@@ -333,13 +398,22 @@ export default class GameScene extends Phaser.Scene {
             ease: 'Power2'
         });
     }
-    private missStar(star: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody) {
-        star.destroy();
+    private missStar(item: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody) {
+        const type = item.getData('type') || 'star';
+        item.destroy();
+
+        if (type === 'shield' || type === 'pylon') {
+            return; // Keine Strafe beim Verfehlen
+        }
+
+        if (this.isShieldActive) {
+            return; // Schild fängt den Fehler ab
+        }
+
         this.lives -= 1;
         this.livesText.setText('LIVES: ' + this.lives);
 
         this.sound.play('missSound', { volume: 0.5 });
-        // Kamera-Wackeln als Feedback für Fehler
         this.cameras.main.shake(100, 0.01);
 
         if (this.lives <= 0) {
@@ -347,9 +421,46 @@ export default class GameScene extends Phaser.Scene {
         }
     }
 
+    private activateShield() {
+        this.isShieldActive = true;
+        this.player.setTint(0x00ffff);
+        
+        if (this.shieldTimerEvent) {
+            this.shieldTimerEvent.remove();
+        }
+        
+        this.shieldTimerEvent = this.time.delayedCall(5000, () => {
+            this.isShieldActive = false;
+            this.player.clearTint();
+        });
+    }
+
+    private hitPylon() {
+        this.sound.play('pylonSound', { volume: 0.5 });
+        this.audioController.playCrashSound(this);
+        this.cameras.main.shake(300, 0.03);
+        
+        this.isSlowed = true;
+        if (this.slowdownTimerEvent) this.slowdownTimerEvent.remove();
+        this.slowdownTimerEvent = this.time.delayedCall(2000, () => {
+            this.isSlowed = false;
+        });
+        
+        this.player.setTint(0xff0000);
+        this.time.delayedCall(150, () => {
+            if (this.isShieldActive) {
+                this.player.setTint(0x00ffff);
+            } else {
+                this.player.clearTint();
+            }
+        });
+    }
+
     private gameOver() {
         this.physics.pause(); // Alle Bewegungen stoppen
         this.spawnTimerEvent.remove(); // Keine Sterne mehr spawnen
+        if (this.shieldTimerEvent) this.shieldTimerEvent.remove();
+        if (this.slowdownTimerEvent) this.slowdownTimerEvent.remove();
         this.audioController.stop(); // Musik stoppen
         this.player.setTint(0xff0000); // Spieler wird rot
 
@@ -397,6 +508,8 @@ export default class GameScene extends Phaser.Scene {
         this.lives = 0; // Stoppt Update-Loop und Musik
         this.physics.pause();
         if (this.spawnTimerEvent) this.spawnTimerEvent.remove();
+        if (this.shieldTimerEvent) this.shieldTimerEvent.remove();
+        if (this.slowdownTimerEvent) this.slowdownTimerEvent.remove();
         this.audioController.stop();
         
         // Zurück zum Startbildschirm (OHNE Highscore-Speicherung)
