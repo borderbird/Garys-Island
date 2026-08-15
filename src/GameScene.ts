@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import AudioController from './AudioController';
 
 export default class GameScene extends Phaser.Scene {
     private player!: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
@@ -14,19 +15,8 @@ export default class GameScene extends Phaser.Scene {
     private levelText!: Phaser.GameObjects.Text;
     private spawnTimerEvent!: Phaser.Time.TimerEvent;
 
-    private bgmContext: AudioContext | null = null;
-    private bgmTimer: Phaser.Time.TimerEvent | null = null;
-    private noteIndex: number = 0;
+    private audioController!: AudioController;
     private isTurboActive: boolean = false;
-    // Giana Sisters inspirierter 32-Step Loop mit Pausen (0)
-    private melody = [
-        // Part 1: C-Moll Bounce
-        261.63, 0, 311.13, 261.63, 0, 392.00, 311.13, 0,
-        261.63, 0, 311.13, 261.63, 0, 392.00, 466.16, 0,
-        // Part 2: G#-Dur / F-Moll Wechsel
-        207.65, 0, 261.63, 207.65, 0, 311.13, 261.63, 0,
-        174.61, 0, 207.65, 174.61, 0, 261.63, 311.13, 0
-    ];
 
     private isQuitPromptActive: boolean = false;
     private quitPromptText!: Phaser.GameObjects.Text;
@@ -63,7 +53,7 @@ export default class GameScene extends Phaser.Scene {
         this.level = 1;
         this.isQuitPromptActive = false;
         this.isPaused = false;
-        this.bgmTimer = null;
+        this.audioController = new AudioController();
         this.isTurboActive = false;
 
         const highscore = localStorage.getItem('astroBenzHighscore') || '0';
@@ -126,7 +116,7 @@ export default class GameScene extends Phaser.Scene {
 
         if (this.input.keyboard) {
             this.input.keyboard.once('keydown', () => {
-                this.startBackgroundMusic();
+                this.audioController.startBackgroundMusic(this);
             });
 
             // Zentraler Keydown Handler für Mute, Pause und Quit
@@ -154,7 +144,7 @@ export default class GameScene extends Phaser.Scene {
                         this.physics.resume();
                         this.tweens.resumeAll();
                         if (this.spawnTimerEvent) this.spawnTimerEvent.paused = false;
-                        if (this.bgmTimer) this.bgmTimer.paused = false;
+                        this.audioController.resume();
                     }
                     return; // Event wurde verarbeitet
                 }
@@ -171,7 +161,7 @@ export default class GameScene extends Phaser.Scene {
                         this.physics.pause();
                         this.tweens.pauseAll();
                         if (this.spawnTimerEvent) this.spawnTimerEvent.paused = true;
-                        if (this.bgmTimer) this.bgmTimer.paused = true;
+                        this.audioController.pause();
                     }
                 } else if (key === ' ' || event.code === 'Space') {
                     // Pause Toggle
@@ -181,13 +171,13 @@ export default class GameScene extends Phaser.Scene {
                         this.physics.pause();
                         this.tweens.pauseAll();
                         if (this.spawnTimerEvent) this.spawnTimerEvent.paused = true;
-                        if (this.bgmTimer) this.bgmTimer.paused = true;
+                        this.audioController.pause();
                         this.pausedText.setVisible(true);
                     } else {
                         this.physics.resume();
                         this.tweens.resumeAll();
                         if (this.spawnTimerEvent) this.spawnTimerEvent.paused = false;
-                        if (this.bgmTimer) this.bgmTimer.paused = false;
+                        this.audioController.resume();
                         this.pausedText.setVisible(false);
                     }
                 }
@@ -360,9 +350,10 @@ export default class GameScene extends Phaser.Scene {
     private gameOver() {
         this.physics.pause(); // Alle Bewegungen stoppen
         this.spawnTimerEvent.remove(); // Keine Sterne mehr spawnen
+        this.audioController.stop(); // Musik stoppen
         this.player.setTint(0xff0000); // Spieler wird rot
 
-        this.playGameOverChiptune();
+        this.audioController.playGameOverChiptune(this);
 
         // Highscore speichern
         const currentHighscore = parseInt(localStorage.getItem('astroBenzHighscore') || '0', 10);
@@ -406,108 +397,9 @@ export default class GameScene extends Phaser.Scene {
         this.lives = 0; // Stoppt Update-Loop und Musik
         this.physics.pause();
         if (this.spawnTimerEvent) this.spawnTimerEvent.remove();
-        if (this.bgmTimer) this.bgmTimer.remove();
+        this.audioController.stop();
         
         // Zurück zum Startbildschirm (OHNE Highscore-Speicherung)
         this.scene.start('StartScene');
-    }
-
-    private playGameOverChiptune() {
-        if (this.registry.get('isMuted')) return;
-
-        // Audio Context des Browsers abrufen
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        
-        // Drei absteigende Töne (Rechteck-Welle = klassischer Arcade-Klang)
-        const notes = [330.00, 261.63, 164.81]; // Töne: E4, C4, E3
-        let startTime = audioCtx.currentTime;
-
-        notes.forEach((freq) => {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            
-            osc.type = 'square'; // Das Geheimnis des 8-Bit-Sounds
-            osc.frequency.setValueAtTime(freq, startTime);
-            
-            // Lautstärke kurz anreißen und schnell ausklingen lassen
-            gain.gain.setValueAtTime(0.1, startTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
-            
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            
-            osc.start(startTime);
-            osc.stop(startTime + 0.2);
-            
-            startTime += 0.25; 
-        });
-
-        // Am Ende ein düsterer "Absturz"-Sound (Sägezahn-Welle)
-        const buzz = audioCtx.createOscillator();
-        const buzzGain = audioCtx.createGain();
-        
-        buzz.type = 'sawtooth';
-        buzz.frequency.setValueAtTime(100, startTime);
-        buzz.frequency.exponentialRampToValueAtTime(10, startTime + 0.8); // Tonhöhen-Abfall
-        
-        buzzGain.gain.setValueAtTime(0.1, startTime);
-        buzzGain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.8);
-        
-        buzz.connect(buzzGain);
-        buzzGain.connect(audioCtx.destination);
-        
-        buzz.start(startTime);
-        buzz.stop(startTime + 0.8);
-    }
-
-    private startBackgroundMusic() {
-        if (!this.bgmContext) {
-            this.bgmContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        }
-        if (this.bgmTimer) return;
-
-        this.bgmTimer = this.time.addEvent({
-            delay: 150, // Tempo der Melodie (150ms pro Note)
-            callback: this.playMelodyNote,
-            callbackScope: this,
-            loop: true
-        });
-    }
-
-    private playMelodyNote() {
-        // Stoppe die Musik, wenn das Spiel vorbei ist
-        if (!this.bgmContext || this.lives <= 0) {
-            this.bgmTimer?.remove();
-            return;
-        }
-
-        if (this.registry.get('isMuted')) return;
-
-        const freq = this.melody[this.noteIndex];
-        this.noteIndex = (this.noteIndex + 1) % this.melody.length;
-
-        // Wenn die Frequenz 0 ist, spielen wir eine Pause
-        if (freq === 0) {
-            return;
-        }
-
-        const osc = this.bgmContext.createOscillator();
-        const gain = this.bgmContext.createGain();
-
-        // Rechteckwelle für den klassischen SID-Chip-Sound des C64
-        osc.type = 'square'; 
-        osc.frequency.setValueAtTime(freq, this.bgmContext.currentTime);
-
-        // Etwas weicher eingestellt (0.1), damit es beim längeren Hören angenehm bleibt
-        gain.gain.setValueAtTime(0.1, this.bgmContext.currentTime);
-        
-        // Kurzes, perkussives Ausklingen für den "hüpfenden" Rhythmus
-        gain.gain.exponentialRampToValueAtTime(0.001, this.bgmContext.currentTime + 0.12);
-
-        osc.connect(gain);
-        gain.connect(this.bgmContext.destination);
-
-        osc.start(this.bgmContext.currentTime);
-        osc.stop(this.bgmContext.currentTime + 0.12);
     }
 }
