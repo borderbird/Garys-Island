@@ -51,7 +51,7 @@ export default class StartScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // Start Text (Blinkend)
-        const startText = this.add.text(400, 520, 'PRESS SPACE TO START', {
+        const startText = this.add.text(400, 550, 'PRESS SPACE TO START', {
             fontSize: '20px',
             color: '#ffffff',
             fontFamily: '"Press Start 2P"',
@@ -72,7 +72,7 @@ export default class StartScene extends Phaser.Scene {
             this.input.keyboard.once('keydown-SPACE', () => {
                 this.scene.start('GameScene', { bgKey: this.bgKey });
             });
-            
+
             // M-Taste für Mute
             this.input.keyboard.on('keydown-M', () => {
                 const isMuted = !this.sound.mute;
