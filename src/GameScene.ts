@@ -58,6 +58,12 @@ export default class GameScene extends Phaser.Scene {
         this.add.text(800 - 16, 16, `HI-SCORE: ${highscore}`, { fontSize: '24px', color: '#fff', fontFamily: '"Press Start 2P"' }).setOrigin(1, 0);
         this.levelText = this.add.text(400, 300, '', { fontSize: '32px', color: '#ffff00', fontFamily: '"Press Start 2P"' }).setOrigin(0.5);
 
+        // Partikel-Textur erstellen
+        const graphics = this.make.graphics({ x: 0, y: 0 });
+        graphics.fillStyle(0xffffff, 1);
+        graphics.fillRect(0, 0, 6, 6);
+        graphics.generateTexture('pixel', 6, 6);
+
         // Spieler erstellen und Physik aktivieren
         this.player = this.physics.add.sprite(400, 550, 'player');
         this.player.setCollideWorldBounds(true); // Darf den Bildschirm nicht verlassen
@@ -111,11 +117,14 @@ export default class GameScene extends Phaser.Scene {
         if (this.cursors.left.isDown) {
             this.player.setVelocityX(-speed);
             this.player.setFlipX(true);
+            this.player.angle = -5 + Math.sin(this.time.now / 100) * 5; // Leichtes Wackeln
         } else if (this.cursors.right.isDown) {
             this.player.setVelocityX(speed);
             this.player.setFlipX(false);
+            this.player.angle = 5 + Math.sin(this.time.now / 100) * 5; // Leichtes Wackeln
         } else {
             this.player.setVelocityX(0);
+            this.player.angle = 0;
         }
 
         // Prüfen, ob Sterne den unteren Rand erreicht haben (verpasst!) und Zickzack-Bewegung anwenden
@@ -167,15 +176,55 @@ export default class GameScene extends Phaser.Scene {
         maxSpeed = Math.min(maxSpeed, 900);
         
         star.setVelocityY(Phaser.Math.Between(minSpeed, maxSpeed));
+        
+        // Stern-Animation (Rotation)
+        this.tweens.add({
+            targets: star,
+            angle: 360,
+            duration: 2500,
+            repeat: -1
+        });
     }
 
     private catchStar(_player: any, star: any) {
+        const isZigzag = star.getData('isZigzag');
+        const starX = star.x;
+        const starY = star.y;
+        
+        const points = isZigzag ? 200 : 100;
+
         star.destroy(); // Stern verschwindet
-        this.score += 100; // 100 Punkte pro Stern
+        
+        // Partikelexplosion
+        const emitter = this.add.particles(starX, starY, 'pixel', {
+            speed: { min: 50, max: 200 },
+            scale: { start: 1, end: 0 },
+            lifespan: 600,
+            tint: isZigzag ? 0xff0000 : 0xffff00,
+            emitting: false
+        });
+        emitter.explode(15);
+        
+        // Punktewert-Popup
+        const popup = this.add.text(starX, starY - 20, `+${points}`, {
+            fontSize: '16px',
+            color: isZigzag ? '#ff0000' : '#ffff00',
+            fontFamily: '"Press Start 2P"'
+        }).setOrigin(0.5);
+
+        this.tweens.add({
+            targets: popup,
+            y: popup.y - 50,
+            alpha: 0,
+            duration: 800,
+            onComplete: () => popup.destroy()
+        });
+        
+        this.score += points;
         this.scoreText.setText('SCORE: ' + this.score);
 
         // Level Up Check (alle 1000 Punkte)
-        if (this.score % 1000 === 0) {
+        if (this.score >= this.level * 1000) {
             this.level += 1;
             this.showLevelUp();
         }
