@@ -5,15 +5,20 @@ export default class StartScene extends Phaser.Scene {
         super('StartScene');
     }
 
+    private bgKey: string = 'bg1';
+
     preload() {
-        // Load background if not loaded already, though it's loaded in GameScene. 
-        // We should move preload to a PreloaderScene or just duplicate it here for now to ensure it's available.
-        this.load.image('background', 'assets/bg.png');
+        this.load.image('bg1', 'assets/bg.png');
+        this.load.image('bg2', 'assets/bg2.jpg');
+        this.load.image('bg3', 'assets/bg3.jpg');
     }
 
     create() {
+        const bgIndex = Phaser.Math.Between(1, 3);
+        this.bgKey = `bg${bgIndex}`;
+
         // Hintergrund
-        this.add.image(400, 300, 'background').setDepth(-1);
+        this.add.image(400, 300, this.bgKey).setDepth(-1);
 
         // Highscore laden
         const highscore = localStorage.getItem('astroBenzHighscore') || '0';
@@ -36,11 +41,13 @@ export default class StartScene extends Phaser.Scene {
 
         // Steuerung (Tastenbefehle)
         const controlsText = `STEUERUNG:\n\n< > PFEILTASTEN: Bewegen\nSHIFT: Turbo`;
-        this.add.text(400, 420, controlsText, {
+        this.add.text(400, 430, controlsText, {
             fontSize: '16px',
-            color: '#aaaaaa',
+            color: '#ffffff',
             fontFamily: '"Press Start 2P"',
-            align: 'center'
+            align: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            padding: { x: 20, y: 20 }
         }).setOrigin(0.5);
 
         // Start Text (Blinkend)
@@ -63,7 +70,7 @@ export default class StartScene extends Phaser.Scene {
         // Space-Taste zum Starten
         if (this.input.keyboard) {
             this.input.keyboard.once('keydown-SPACE', () => {
-                this.scene.start('GameScene');
+                this.scene.start('GameScene', { bgKey: this.bgKey });
             });
         }
     }

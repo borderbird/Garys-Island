@@ -28,15 +28,23 @@ export default class GameScene extends Phaser.Scene {
         174.61, 0, 207.65, 174.61, 0, 261.63, 311.13, 0
     ];
 
+    private bgKey: string = 'bg1';
+
     constructor() {
         super('GameScene');
+    }
+
+    init(data: any) {
+        if (data && data.bgKey) {
+            this.bgKey = data.bgKey;
+        }
     }
 
     // 1. Assets laden
     preload() {
         this.load.image('player', 'assets/player128x128.png');
         this.load.image('star', 'assets/star.png');
-        this.load.image('background', 'assets/bg.png');
+        // bg is loaded in StartScene
         this.load.audio('catchSound', 'assets/catch.wav');
         this.load.audio('missSound', 'assets/miss.wav');
         this.load.audio('turboSound', 'assets/turbo.wav');
@@ -44,7 +52,7 @@ export default class GameScene extends Phaser.Scene {
 
     // 2. Spielwelt aufbauen
     create() {
-        this.add.image(400, 300, 'background').setDepth(-1);
+        this.add.image(400, 300, this.bgKey).setDepth(-1);
 
         this.score = 0;
         this.lives = 5;
