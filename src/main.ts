@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import StartScene from './StartScene';
 import GameScene from './GameScene';
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -13,7 +14,7 @@ const config: Phaser.Types.Core.GameConfig = {
             debug: false
         }
     },
-    scene: [GameScene],
+    scene: [StartScene, GameScene],
     backgroundColor: '#1a1a2e', // Ein dunkles Blau/Lila für den Retro-Look
     pixelArt: true
 };

@@ -7,9 +7,11 @@ export default class GameScene extends Phaser.Scene {
 
     private score: number = 0;
     private lives: number = 5;
+    private level: number = 1;
 
     private scoreText!: Phaser.GameObjects.Text;
     private livesText!: Phaser.GameObjects.Text;
+    private levelText!: Phaser.GameObjects.Text;
     private spawnTimerEvent!: Phaser.Time.TimerEvent;
 
     private bgmContext: AudioContext | null = null;
@@ -46,15 +48,20 @@ export default class GameScene extends Phaser.Scene {
 
         this.score = 0;
         this.lives = 5;
+        this.level = 1;
+
+        const highscore = localStorage.getItem('astroBenzHighscore') || '0';
 
         // UI-Texte
-        this.scoreText = this.add.text(16, 16, 'Sterne: 0', { fontSize: '24px', color: '#fff', fontFamily: '"Press Start 2P"' });
-        this.livesText = this.add.text(16, 50, 'Leben: 5', { fontSize: '24px', color: '#ff0000', fontFamily: '"Press Start 2P"' });
+        this.scoreText = this.add.text(16, 16, 'SCORE: 0', { fontSize: '24px', color: '#fff', fontFamily: '"Press Start 2P"' });
+        this.livesText = this.add.text(16, 50, 'LIVES: 5', { fontSize: '24px', color: '#ff0000', fontFamily: '"Press Start 2P"' });
+        this.add.text(800 - 16, 16, `HI-SCORE: ${highscore}`, { fontSize: '24px', color: '#fff', fontFamily: '"Press Start 2P"' }).setOrigin(1, 0);
+        this.levelText = this.add.text(400, 300, '', { fontSize: '32px', color: '#ffff00', fontFamily: '"Press Start 2P"' }).setOrigin(0.5);
 
         // Spieler erstellen und Physik aktivieren
         this.player = this.physics.add.sprite(400, 550, 'player');
         this.player.setCollideWorldBounds(true); // Darf den Bildschirm nicht verlassen
-        this.player.setSize(80, 100, true); // Hitbox anpassen und zentrieren
+        this.player.setSize(80, 100); // Hitbox anpassen
 
         // Gruppe für die Sterne
         this.starsGroup = this.physics.add.group();
@@ -111,9 +118,17 @@ export default class GameScene extends Phaser.Scene {
             this.player.setVelocityX(0);
         }
 
-        // Prüfen, ob Sterne den unteren Rand erreicht haben (verpasst!)
+        // Prüfen, ob Sterne den unteren Rand erreicht haben (verpasst!) und Zickzack-Bewegung anwenden
         this.starsGroup.getChildren().forEach((gameObject) => {
             const star = gameObject as Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
+            
+            // Zickzack-Bewegung
+            if (star.getData('isZigzag')) {
+                const startX = star.getData('startX');
+                const time = this.time.now / 300; // Geschwindigkeit der Seitwärtsbewegung
+                star.x = startX + Math.sin(time + star.getData('randomOffset')) * 100;
+            }
+
             if (star.y > 600) {
                 this.missStar(star);
             }
@@ -124,14 +139,28 @@ export default class GameScene extends Phaser.Scene {
 
     private spawnStar() {
         // Zufällige X-Position zwischen 50 und 750 (Bildschirmbreite vorausgesetzt: 800)
-        const x = Phaser.Math.Between(50, 750);
+        let x = Phaser.Math.Between(50, 750);
+        
+        // Verhindern, dass Zickzack-Sterne aus dem Bild fliegen
+        if (this.level >= 2) {
+            x = Phaser.Math.Between(150, 650); 
+        }
+
         const star = this.starsGroup.create(x, 0, 'star');
         star.setScale(0.5);
         star.setCircle(50, 14, 14); // Hitbox als Kreis anpassen und zentrieren
 
-        // Fällt nach unten (Schwerkraft für Sterne abhängig vom Punktestand)
-        let minSpeed = 150 + (this.score * 10);
-        let maxSpeed = 300 + (this.score * 15);
+        // Zickzack-Logik ab Level 2
+        if (this.level >= 2 && Phaser.Math.FloatBetween(0, 1) < 0.3) {
+            star.setData('isZigzag', true);
+            star.setData('startX', x);
+            star.setData('randomOffset', Phaser.Math.FloatBetween(0, Math.PI * 2));
+            star.setTint(0xff0000); // Rot markieren
+        }
+
+        // Fällt nach unten (Schwerkraft für Sterne abhängig vom Level)
+        let minSpeed = 150 + (this.level * 30);
+        let maxSpeed = 300 + (this.level * 40);
         
         // Obergrenze einfügen, damit es spielbar bleibt
         minSpeed = Math.min(minSpeed, 800);
@@ -140,18 +169,35 @@ export default class GameScene extends Phaser.Scene {
         star.setVelocityY(Phaser.Math.Between(minSpeed, maxSpeed));
     }
 
-    private catchStar(player: any, star: any) {
+    private catchStar(_player: any, star: any) {
         star.destroy(); // Stern verschwindet
-        this.score += 1; // Punkt dazu
-        this.scoreText.setText('Sterne: ' + this.score);
+        this.score += 100; // 100 Punkte pro Stern
+        this.scoreText.setText('SCORE: ' + this.score);
+
+        // Level Up Check (alle 1000 Punkte)
+        if (this.score % 1000 === 0) {
+            this.level += 1;
+            this.showLevelUp();
+        }
 
         this.sound.play('catchSound', { volume: 0.5 });
     }
 
+    private showLevelUp() {
+        this.levelText.setText(`WELLE ${this.level}`);
+        this.levelText.setAlpha(1);
+        
+        this.tweens.add({
+            targets: this.levelText,
+            alpha: 0,
+            duration: 2000,
+            ease: 'Power2'
+        });
+    }
     private missStar(star: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody) {
         star.destroy();
         this.lives -= 1;
-        this.livesText.setText('Leben: ' + this.lives);
+        this.livesText.setText('LIVES: ' + this.lives);
 
         this.sound.play('missSound', { volume: 0.5 });
         // Kamera-Wackeln als Feedback für Fehler
@@ -169,14 +215,42 @@ export default class GameScene extends Phaser.Scene {
 
         this.playGameOverChiptune();
 
+        // Highscore speichern
+        const currentHighscore = parseInt(localStorage.getItem('astroBenzHighscore') || '0', 10);
+        if (this.score > currentHighscore) {
+            localStorage.setItem('astroBenzHighscore', this.score.toString());
+        }
+
         // Game Over Text anzeigen
-        const gameOverText = `GAME OVER\n\nDu hast ${this.score} Sterne gefangen!`;
+        const gameOverText = `GAME OVER\n\nSCORE: ${this.score}\n\nPRESS SPACE TO RESTART\nPRESS 'S' FOR SCREENSHOT`;
         this.add.text(400, 300, gameOverText, {
             fontSize: '24px',
             color: '#fff',
             fontFamily: '"Press Start 2P"',
-            align: 'center'
+            align: 'center',
+            lineSpacing: 10
         }).setOrigin(0.5, 0.5); // Zentriert den Text
+
+        // Screenshot-Funktion ('S' Taste)
+        if (this.input.keyboard) {
+            this.input.keyboard.once('keydown-S', () => {
+                this.game.renderer.snapshot((image: any) => {
+                    const link = document.createElement('a');
+                    link.download = `astro-benz-highscore-${this.score}.png`;
+                    link.href = image.src;
+                    link.click();
+                });
+            });
+        }
+
+        // Neustart mit Leertaste
+        this.time.delayedCall(500, () => {
+            if (this.input.keyboard) {
+                this.input.keyboard.once('keydown-SPACE', () => {
+                    this.scene.start('StartScene');
+                });
+            }
+        });
     }
 
     private playGameOverChiptune() {
