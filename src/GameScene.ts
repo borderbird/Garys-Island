@@ -24,6 +24,8 @@ export default class GameScene extends Phaser.Scene {
     private isSlowed: boolean = false;
     private slowdownTimerEvent: Phaser.Time.TimerEvent | null = null;
 
+    private highscoreText!: Phaser.GameObjects.Text;
+
     private isQuitPromptActive: boolean = false;
     private quitPromptText!: Phaser.GameObjects.Text;
     private isPaused: boolean = false;
@@ -74,7 +76,7 @@ export default class GameScene extends Phaser.Scene {
         // UI-Texte
         this.scoreText = this.add.text(16, 16, 'SCORE: 0', { fontSize: '24px', color: '#fff', fontFamily: '"Press Start 2P"' });
         this.livesText = this.add.text(16, 50, 'LIVES: 5', { fontSize: '24px', color: '#ff0000', fontFamily: '"Press Start 2P"' });
-        this.add.text(800 - 16, 16, `HI-SCORE: ${highscore}`, { fontSize: '24px', color: '#fff', fontFamily: '"Press Start 2P"' }).setOrigin(1, 0);
+        this.highscoreText = this.add.text(800 - 16, 16, `HI-SCORE: ${highscore}`, { fontSize: '24px', color: '#fff', fontFamily: '"Press Start 2P"' }).setOrigin(1, 0);
         this.levelText = this.add.text(400, 300, '', { fontSize: '32px', color: '#ffff00', fontFamily: '"Press Start 2P"' }).setOrigin(0.5);
 
         // Partikel-Textur erstellen
@@ -468,12 +470,18 @@ export default class GameScene extends Phaser.Scene {
 
         // Highscore speichern
         const currentHighscore = parseInt(localStorage.getItem('astroBenzHighscore') || '0', 10);
+        let isNewHighscore = false;
+        
         if (this.score > currentHighscore) {
             localStorage.setItem('astroBenzHighscore', this.score.toString());
+            this.highscoreText.setText(`HI-SCORE: ${this.score}`);
+            this.highscoreText.setColor('#00ff00'); // Grün für neuen Highscore
+            isNewHighscore = true;
         }
 
         // Game Over Text anzeigen
-        const gameOverText = `GAME OVER\n\nSCORE: ${this.score}\n\nPRESS SPACE TO RESTART\nPRESS 'S' FOR SCREENSHOT`;
+        const title = isNewHighscore ? 'NEW HIGH SCORE!' : 'GAME OVER';
+        const gameOverText = `${title}\n\nSCORE: ${this.score}\n\nPRESS SPACE TO RESTART\nPRESS 'S' FOR SCREENSHOT`;
         this.add.text(400, 300, gameOverText, {
             fontSize: '24px',
             color: '#fff',
