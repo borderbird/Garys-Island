@@ -473,48 +473,26 @@ export default class GameScene extends Phaser.Scene {
 
         this.audioController.playGameOverChiptune(this);
 
-        // Highscore speichern
+        // Highscore lokal speichern (als Fallback/Historie)
         const currentHighscore = parseInt(localStorage.getItem('garysIslandHighscore') || '0', 10);
-        let isNewHighscore = false;
-        
         if (this.score > currentHighscore) {
             localStorage.setItem('garysIslandHighscore', this.score.toString());
             this.highscoreText.setText(`HI-SCORE: ${this.score}`);
             this.highscoreText.setColor('#00ff00'); // Grün für neuen Highscore
-            isNewHighscore = true;
         }
 
-        // Game Over Text anzeigen
-        const title = isNewHighscore ? 'NEW HIGH SCORE!' : 'GAME OVER';
-        const gameOverText = `${title}\n\nSCORE: ${this.score}\n\nPRESS SPACE TO RESTART\nPRESS 'S' FOR SCREENSHOT`;
-        const goTextObj = this.add.text(400, 300, gameOverText, {
-            fontSize: '24px',
-            color: '#00FFFF',
+        // Game Over Text anzeigen (kurz)
+        const goTextObj = this.add.text(400, 300, 'GAME OVER', {
+            fontSize: '32px',
+            color: '#FF0000',
             fontFamily: '"Press Start 2P"',
-            align: 'center',
-            lineSpacing: 10
-        }).setOrigin(0.5, 0.5); // Zentriert den Text
+            align: 'center'
+        }).setOrigin(0.5, 0.5); 
         goTextObj.setShadow(0, 0, '#FF00FF', 10, false, true);
 
-        // Screenshot-Funktion ('S' Taste)
-        if (this.input.keyboard) {
-            this.input.keyboard.once('keydown-S', () => {
-                this.game.renderer.snapshot((image: any) => {
-                    const link = document.createElement('a');
-                    link.download = `garys-island-highscore-${this.score}.png`;
-                    link.href = image.src;
-                    link.click();
-                });
-            });
-        }
-
-        // Neustart mit Leertaste
-        this.time.delayedCall(500, () => {
-            if (this.input.keyboard) {
-                this.input.keyboard.once('keydown-SPACE', () => {
-                    this.scene.start('StartScene');
-                });
-            }
+        // Nach 2 Sekunden zur Rangliste wechseln
+        this.time.delayedCall(2000, () => {
+            this.scene.start('LeaderboardScene', { score: this.score });
         });
     }
 

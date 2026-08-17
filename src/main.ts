@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import StartScene from './StartScene';
 import GameScene from './GameScene';
+import LeaderboardScene from './LeaderboardScene';
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
@@ -14,7 +15,7 @@ const config: Phaser.Types.Core.GameConfig = {
             debug: false
         }
     },
-    scene: [StartScene, GameScene],
+    scene: [StartScene, GameScene, LeaderboardScene],
     backgroundColor: '#0b0410', // Tiefes Violett für Synthwave
     pixelArt: true
 };
