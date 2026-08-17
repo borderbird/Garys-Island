@@ -21,6 +21,9 @@ export default class AudioController {
         if (!AudioController.bgmContext) {
             AudioController.bgmContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         }
+        if (AudioController.bgmContext.state === 'suspended') {
+            AudioController.bgmContext.resume();
+        }
         if (this.bgmTimer) return;
 
         this.noteIndex = 0;
@@ -68,8 +71,11 @@ export default class AudioController {
     public playGameOverChiptune(scene: Phaser.Scene) {
         if (scene.registry.get('isMuted')) return;
 
-        // Eigener, kurzer Audio Context für Game Over
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (!AudioController.bgmContext) {
+            AudioController.bgmContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        const audioCtx = AudioController.bgmContext;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
         
         const notes = [330.00, 261.63, 164.81]; // Töne: E4, C4, E3
         let startTime = audioCtx.currentTime;
@@ -114,7 +120,12 @@ export default class AudioController {
     public playShieldCatchSound(scene: Phaser.Scene) {
         if (scene.registry.get('isMuted')) return;
 
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (!AudioController.bgmContext) {
+            AudioController.bgmContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        const audioCtx = AudioController.bgmContext;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
         let startTime = audioCtx.currentTime;
 
         // Heller, aufsteigender Arpeggio-Sound
@@ -142,7 +153,12 @@ export default class AudioController {
     public playCrashSound(scene: Phaser.Scene) {
         if (scene.registry.get('isMuted')) return;
 
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (!AudioController.bgmContext) {
+            AudioController.bgmContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        const audioCtx = AudioController.bgmContext;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
         const startTime = audioCtx.currentTime;
 
         // Tiefer, rauer Crash-Sound (Sawtooth + starker Frequenzabfall)

@@ -57,7 +57,8 @@ export default class GameScene extends Phaser.Scene {
 
     // 2. Spielwelt aufbauen
     create() {
-        this.add.image(400, 300, this.bgKey).setDepth(-1);
+        const bg = this.add.image(400, 300, this.bgKey).setDepth(-1);
+        bg.setDisplaySize(800, 600);
 
         this.score = 0;
         this.lives = 5;
@@ -71,13 +72,17 @@ export default class GameScene extends Phaser.Scene {
         this.isSlowed = false;
         this.slowdownTimerEvent = null;
 
-        const highscore = localStorage.getItem('astroBenzHighscore') || '0';
+        const highscore = localStorage.getItem('garysIslandHighscore') || '0';
 
         // UI-Texte
-        this.scoreText = this.add.text(16, 16, 'SCORE: 0', { fontSize: '24px', color: '#fff', fontFamily: '"Press Start 2P"' });
-        this.livesText = this.add.text(16, 50, 'LIVES: 5', { fontSize: '24px', color: '#ff0000', fontFamily: '"Press Start 2P"' });
-        this.highscoreText = this.add.text(800 - 16, 16, `HI-SCORE: ${highscore}`, { fontSize: '24px', color: '#fff', fontFamily: '"Press Start 2P"' }).setOrigin(1, 0);
-        this.levelText = this.add.text(400, 300, '', { fontSize: '32px', color: '#ffff00', fontFamily: '"Press Start 2P"' }).setOrigin(0.5);
+        this.scoreText = this.add.text(16, 16, 'SCORE: 0', { fontSize: '24px', color: '#00FFFF', fontFamily: '"Press Start 2P"' });
+        this.scoreText.setShadow(0, 0, '#FF00FF', 8, false, true);
+        this.livesText = this.add.text(16, 50, 'LIVES: 5', { fontSize: '24px', color: '#FF00FF', fontFamily: '"Press Start 2P"' });
+        this.livesText.setShadow(0, 0, '#00FFFF', 8, false, true);
+        this.highscoreText = this.add.text(800 - 16, 16, `HI-SCORE: ${highscore}`, { fontSize: '24px', color: '#00FFFF', fontFamily: '"Press Start 2P"' }).setOrigin(1, 0);
+        this.highscoreText.setShadow(0, 0, '#FF00FF', 8, false, true);
+        this.levelText = this.add.text(400, 300, '', { fontSize: '32px', color: '#FF00FF', fontFamily: '"Press Start 2P"' }).setOrigin(0.5);
+        this.levelText.setShadow(0, 0, '#00FFFF', 10, false, true);
 
         // Partikel-Textur erstellen
         const graphics = this.make.graphics({ x: 0, y: 0 });
@@ -286,12 +291,11 @@ export default class GameScene extends Phaser.Scene {
                 item.setData('isZigzag', true);
                 item.setData('startX', x);
                 item.setData('randomOffset', Phaser.Math.FloatBetween(0, Math.PI * 2));
-                item.setTint(0xff0000); 
+                item.setTint(0x00ff00); 
             }
         } else if (type === 'shield') {
             item.setScale(0.5); // 128x128 -> 64x64
             item.setCircle(50, 14, 14); 
-            item.setTint(0x00ffff);
         } else if (type === 'pylon') {
             item.setScale(0.5); // 128x128 -> 64x64
             item.setSize(80, 100);
@@ -357,7 +361,7 @@ export default class GameScene extends Phaser.Scene {
             speed: { min: 50, max: 200 },
             scale: { start: 1, end: 0 },
             lifespan: 600,
-            tint: isZigzag ? 0xff0000 : 0xffff00,
+            tint: isZigzag ? 0x00ff00 : 0xffff00,
             emitting: false
         });
         emitter.explode(15);
@@ -365,9 +369,10 @@ export default class GameScene extends Phaser.Scene {
         // Punktewert-Popup
         const popup = this.add.text(itemX, itemY - 20, `+${points}`, {
             fontSize: '16px',
-            color: isZigzag ? '#ff0000' : '#ffff00',
+            color: isZigzag ? '#00ff00' : '#ffff00',
             fontFamily: '"Press Start 2P"'
         }).setOrigin(0.5);
+        popup.setShadow(0, 0, isZigzag ? '#00FFFF' : '#FF00FF', 5, false, true);
 
         this.tweens.add({
             targets: popup,
@@ -425,7 +430,7 @@ export default class GameScene extends Phaser.Scene {
 
     private activateShield() {
         this.isShieldActive = true;
-        this.player.setTint(0x00ffff);
+        this.player.setTint(0xffa500);
         
         if (this.shieldTimerEvent) {
             this.shieldTimerEvent.remove();
@@ -448,10 +453,10 @@ export default class GameScene extends Phaser.Scene {
             this.isSlowed = false;
         });
         
-        this.player.setTint(0xff0000);
+        this.player.setTintFill(0xff0000);
         this.time.delayedCall(150, () => {
             if (this.isShieldActive) {
-                this.player.setTint(0x00ffff);
+                this.player.setTint(0xffa500);
             } else {
                 this.player.clearTint();
             }
@@ -464,16 +469,16 @@ export default class GameScene extends Phaser.Scene {
         if (this.shieldTimerEvent) this.shieldTimerEvent.remove();
         if (this.slowdownTimerEvent) this.slowdownTimerEvent.remove();
         this.audioController.stop(); // Musik stoppen
-        this.player.setTint(0xff0000); // Spieler wird rot
+        this.player.setTintFill(0xff0000); // Spieler wird rot
 
         this.audioController.playGameOverChiptune(this);
 
         // Highscore speichern
-        const currentHighscore = parseInt(localStorage.getItem('astroBenzHighscore') || '0', 10);
+        const currentHighscore = parseInt(localStorage.getItem('garysIslandHighscore') || '0', 10);
         let isNewHighscore = false;
         
         if (this.score > currentHighscore) {
-            localStorage.setItem('astroBenzHighscore', this.score.toString());
+            localStorage.setItem('garysIslandHighscore', this.score.toString());
             this.highscoreText.setText(`HI-SCORE: ${this.score}`);
             this.highscoreText.setColor('#00ff00'); // Grün für neuen Highscore
             isNewHighscore = true;
@@ -482,20 +487,21 @@ export default class GameScene extends Phaser.Scene {
         // Game Over Text anzeigen
         const title = isNewHighscore ? 'NEW HIGH SCORE!' : 'GAME OVER';
         const gameOverText = `${title}\n\nSCORE: ${this.score}\n\nPRESS SPACE TO RESTART\nPRESS 'S' FOR SCREENSHOT`;
-        this.add.text(400, 300, gameOverText, {
+        const goTextObj = this.add.text(400, 300, gameOverText, {
             fontSize: '24px',
-            color: '#fff',
+            color: '#00FFFF',
             fontFamily: '"Press Start 2P"',
             align: 'center',
             lineSpacing: 10
         }).setOrigin(0.5, 0.5); // Zentriert den Text
+        goTextObj.setShadow(0, 0, '#FF00FF', 10, false, true);
 
         // Screenshot-Funktion ('S' Taste)
         if (this.input.keyboard) {
             this.input.keyboard.once('keydown-S', () => {
                 this.game.renderer.snapshot((image: any) => {
                     const link = document.createElement('a');
-                    link.download = `astro-benz-highscore-${this.score}.png`;
+                    link.download = `garys-island-highscore-${this.score}.png`;
                     link.href = image.src;
                     link.click();
                 });

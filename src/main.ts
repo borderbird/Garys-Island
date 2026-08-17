@@ -15,7 +15,7 @@ const config: Phaser.Types.Core.GameConfig = {
         }
     },
     scene: [StartScene, GameScene],
-    backgroundColor: '#1a1a2e', // Ein dunkles Blau/Lila für den Retro-Look
+    backgroundColor: '#0b0410', // Tiefes Violett für Synthwave
     pixelArt: true
 };
 
