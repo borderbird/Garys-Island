@@ -453,7 +453,7 @@ export default class GameScene extends Phaser.Scene {
             this.isSlowed = false;
         });
         
-        this.player.setTintFill(0xff0000);
+        this.player.setTint(0xff0000);
         this.time.delayedCall(150, () => {
             if (this.isShieldActive) {
                 this.player.setTint(0xffa500);
@@ -469,7 +469,7 @@ export default class GameScene extends Phaser.Scene {
         if (this.shieldTimerEvent) this.shieldTimerEvent.remove();
         if (this.slowdownTimerEvent) this.slowdownTimerEvent.remove();
         this.audioController.stop(); // Musik stoppen
-        this.player.setTintFill(0xff0000); // Spieler wird rot
+        this.player.setTint(0xff0000); // Spieler wird rot
 
         this.audioController.playGameOverChiptune(this);
 
