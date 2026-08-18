@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import AudioController from './AudioController';
 
 export default class StartScene extends Phaser.Scene {
     constructor() {
@@ -89,7 +90,16 @@ export default class StartScene extends Phaser.Scene {
             });
         }
 
-        // Touch zum Starten
+        // Native DOM Event Listener für iOS Audio Unlock
+        const unlockAudio = () => {
+            AudioController.initContext();
+            document.removeEventListener('touchstart', unlockAudio);
+            document.removeEventListener('click', unlockAudio);
+        };
+        document.addEventListener('touchstart', unlockAudio, { once: true });
+        document.addEventListener('click', unlockAudio, { once: true });
+
+        // Touch zum Starten (Phaser Event)
         this.input.once('pointerdown', () => {
             this.scene.start('GameScene', { bgKey: this.bgKey });
         });

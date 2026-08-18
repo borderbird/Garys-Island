@@ -17,13 +17,26 @@ export default class AudioController {
 
     constructor() {}
 
-    public startBackgroundMusic(scene: Phaser.Scene) {
+    public static initContext() {
         if (!AudioController.bgmContext) {
             AudioController.bgmContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         }
         if (AudioController.bgmContext.state === 'suspended') {
             AudioController.bgmContext.resume();
         }
+        
+        // Spiele einen unhörbaren Ton ab, um Audio auf iOS permanent zu entsperren
+        const osc = AudioController.bgmContext.createOscillator();
+        const gain = AudioController.bgmContext.createGain();
+        gain.gain.value = 0;
+        osc.connect(gain);
+        gain.connect(AudioController.bgmContext.destination);
+        osc.start(0);
+        osc.stop(0.01);
+    }
+
+    public startBackgroundMusic(scene: Phaser.Scene) {
+        AudioController.initContext();
         if (this.bgmTimer) return;
 
         this.noteIndex = 0;
