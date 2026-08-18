@@ -199,15 +199,10 @@ export default class GameScene extends Phaser.Scene {
                 this.audioController.resume();
             };
 
-            // Mobile Buttons
+            // Expose for HTML Mobile Buttons
             if (isMobile) {
-                this.add.text(750, 40, '⏸', { fontSize: '32px' })
-                    .setOrigin(0.5).setInteractive().setDepth(100)
-                    .on('pointerdown', () => togglePause());
-                
-                this.add.text(50, 40, '⏹', { fontSize: '32px' })
-                    .setOrigin(0.5).setInteractive().setDepth(100)
-                    .on('pointerdown', () => promptQuit());
+                (window as any).gameTogglePause = togglePause;
+                (window as any).gamePromptQuit = promptQuit;
             }
 
             // Zentraler Keydown Handler für Mute, Pause und Quit

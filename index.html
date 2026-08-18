@@ -29,9 +29,22 @@
         width: 800px;
         height: 600px;
         max-width: 100%;
-        /* Leave some space at bottom for trackpad on mobile */
-        max-height: calc(100dvh - 140px); 
+        /* Leave some space at bottom for trackpad and buttons on mobile */
+        max-height: calc(100dvh - 180px); 
         overflow: hidden;
+      }
+      #mobile-top-controls {
+        display: none;
+        width: 90%;
+        justify-content: space-between;
+        margin-top: 10px;
+        margin-bottom: -10px;
+        color: #00FFFF;
+        font-size: 28px;
+        z-index: 10;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
       }
       #trackpad {
         display: none;
@@ -53,6 +66,9 @@
       }
       @media (max-width: 768px) {
         #trackpad {
+          display: flex;
+        }
+        #mobile-top-controls {
           display: flex;
         }
       }
@@ -87,6 +103,10 @@
   <body>
     <div id="font-preload">.</div>
     <div id="app" class="crt"></div>
+    <div id="mobile-top-controls">
+      <div id="btn-quit" onclick="window.gamePromptQuit && window.gamePromptQuit()">⏹</div>
+      <div id="btn-pause" onclick="window.gameTogglePause && window.gameTogglePause()">⏸</div>
+    </div>
     <div id="trackpad">
       <span>◀</span>
       <span>SWIPE TO MOVE</span>
