@@ -100,15 +100,15 @@ export default class GameScene extends Phaser.Scene {
         }).setOrigin(0.5).setDepth(100).setVisible(false);
 
         // Quit-Prompt-Text (unsichtbar am Start)
-        this.quitPromptText = this.add.text(400, 300, 'PRESS Q AGAIN TO QUIT\n\nPRESS ANY OTHER KEY\nTO CONTINUE', {
+        const isMobile = !this.sys.game.device.os.desktop;
+        const quitPromptStr = isMobile ? 'TAP ⏹ AGAIN TO QUIT\n\nTAP ⏸ TO CANCEL' : 'PRESS Q AGAIN TO QUIT\n\nPRESS ANY OTHER KEY\nTO CONTINUE';
+        this.quitPromptText = this.add.text(400, 300, quitPromptStr, {
             fontSize: '24px',
-            color: '#ffffff',
+            color: '#FF0000', // Rot für Warnung
             fontFamily: '"Press Start 2P"',
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            padding: { x: 20, y: 20 },
             align: 'center',
-            lineSpacing: 15
-        }).setOrigin(0.5).setDepth(100).setVisible(false);
+            backgroundColor: 'rgba(0,0,0,0.8)'
+        }).setOrigin(0.5).setVisible(false).setDepth(200);
 
         // Spieler erstellen und Physik aktivieren
         this.player = this.physics.add.sprite(400, 550, 'player');
@@ -139,43 +139,40 @@ export default class GameScene extends Phaser.Scene {
                 this.audioController.startBackgroundMusic(this);
             });
 
-            // Zentraler Keydown Handler für Mute, Pause und Quit
-            this.input.keyboard.on('keydown', (event: KeyboardEvent) => {
-                if (this.lives <= 0) return; // Wenn Game Over, nichts tun
-
-                const key = event.key.toLowerCase();
-
-                // 1. Mute Toggle
-                if (key === 'm') {
-                    const isMuted = !this.sound.mute;
-                    this.sound.mute = isMuted;
-                    this.registry.set('isMuted', isMuted);
-                }
-
-                // 2. Quit Prompt Logik
+            // Reusable logic for Pause and Quit
+            const togglePause = () => {
+                if (this.lives <= 0) return;
                 if (this.isQuitPromptActive) {
-                    if (key === 'q') {
-                        this.quitGame();
-                    } else {
-                        // Abbrechen und Spiel fortsetzen
-                        this.isQuitPromptActive = false;
-                        this.quitPromptText.setVisible(false);
-                        this.isPaused = false;
-                        this.physics.resume();
-                        this.tweens.resumeAll();
-                        if (this.spawnTimerEvent) this.spawnTimerEvent.paused = false;
-                        if (this.shieldTimerEvent) this.shieldTimerEvent.paused = false;
-                        if (this.slowdownTimerEvent) this.slowdownTimerEvent.paused = false;
-                        this.audioController.resume();
-                    }
-                    return; // Event wurde verarbeitet
+                    cancelQuit();
+                    return;
                 }
+                this.isPaused = !this.isPaused;
+                if (this.isPaused) {
+                    this.physics.pause();
+                    this.tweens.pauseAll();
+                    if (this.spawnTimerEvent) this.spawnTimerEvent.paused = true;
+                    if (this.shieldTimerEvent) this.shieldTimerEvent.paused = true;
+                    if (this.slowdownTimerEvent) this.slowdownTimerEvent.paused = true;
+                    this.audioController.pause();
+                    this.pausedText.setVisible(true);
+                } else {
+                    this.physics.resume();
+                    this.tweens.resumeAll();
+                    if (this.spawnTimerEvent) this.spawnTimerEvent.paused = false;
+                    if (this.shieldTimerEvent) this.shieldTimerEvent.paused = false;
+                    if (this.slowdownTimerEvent) this.slowdownTimerEvent.paused = false;
+                    this.audioController.resume();
+                    this.pausedText.setVisible(false);
+                }
+            };
 
-                // 3. Wenn nicht im Quit Prompt
-                if (key === 'q') {
+            const promptQuit = () => {
+                if (this.lives <= 0) return;
+                if (this.isQuitPromptActive) {
+                    this.quitGame();
+                } else {
                     this.isQuitPromptActive = true;
                     this.quitPromptText.setVisible(true);
-
                     if (this.isPaused) {
                         this.pausedText.setVisible(false);
                     } else {
@@ -187,27 +184,55 @@ export default class GameScene extends Phaser.Scene {
                         if (this.slowdownTimerEvent) this.slowdownTimerEvent.paused = true;
                         this.audioController.pause();
                     }
-                } else if (key === ' ' || event.code === 'Space') {
-                    // Pause Toggle
-                    this.isPaused = !this.isPaused;
+                }
+            };
 
-                    if (this.isPaused) {
-                        this.physics.pause();
-                        this.tweens.pauseAll();
-                        if (this.spawnTimerEvent) this.spawnTimerEvent.paused = true;
-                        if (this.shieldTimerEvent) this.shieldTimerEvent.paused = true;
-                        if (this.slowdownTimerEvent) this.slowdownTimerEvent.paused = true;
-                        this.audioController.pause();
-                        this.pausedText.setVisible(true);
-                    } else {
-                        this.physics.resume();
-                        this.tweens.resumeAll();
-                        if (this.spawnTimerEvent) this.spawnTimerEvent.paused = false;
-                        if (this.shieldTimerEvent) this.shieldTimerEvent.paused = false;
-                        if (this.slowdownTimerEvent) this.slowdownTimerEvent.paused = false;
-                        this.audioController.resume();
-                        this.pausedText.setVisible(false);
-                    }
+            const cancelQuit = () => {
+                this.isQuitPromptActive = false;
+                this.quitPromptText.setVisible(false);
+                this.isPaused = false;
+                this.physics.resume();
+                this.tweens.resumeAll();
+                if (this.spawnTimerEvent) this.spawnTimerEvent.paused = false;
+                if (this.shieldTimerEvent) this.shieldTimerEvent.paused = false;
+                if (this.slowdownTimerEvent) this.slowdownTimerEvent.paused = false;
+                this.audioController.resume();
+            };
+
+            // Mobile Buttons
+            if (isMobile) {
+                this.add.text(750, 40, '⏸', { fontSize: '32px' })
+                    .setOrigin(0.5).setInteractive().setDepth(100)
+                    .on('pointerdown', () => togglePause());
+                
+                this.add.text(50, 40, '⏹', { fontSize: '32px' })
+                    .setOrigin(0.5).setInteractive().setDepth(100)
+                    .on('pointerdown', () => promptQuit());
+            }
+
+            // Zentraler Keydown Handler für Mute, Pause und Quit
+            this.input.keyboard.on('keydown', (event: KeyboardEvent) => {
+                if (this.lives <= 0) return;
+
+                const key = event.key.toLowerCase();
+
+                if (key === 'm') {
+                    const isMuted = !this.sound.mute;
+                    this.sound.mute = isMuted;
+                    this.registry.set('isMuted', isMuted);
+                    return;
+                }
+
+                if (this.isQuitPromptActive) {
+                    if (key === 'q') this.quitGame();
+                    else cancelQuit();
+                    return;
+                }
+
+                if (key === 'q') {
+                    promptQuit();
+                } else if (key === ' ' || event.code === 'Space') {
+                    togglePause();
                 }
             });
         }
