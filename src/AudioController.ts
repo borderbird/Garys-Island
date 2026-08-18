@@ -34,59 +34,67 @@ export default class AudioController {
         source.start(0);
     }
 
+    private nextNoteTime: number = 0;
+
     public startBackgroundMusic(scene: Phaser.Scene) {
         AudioController.initContext();
         if (this.bgmTimer) return;
 
         this.noteIndex = 0;
+        if (AudioController.bgmContext) {
+            this.nextNoteTime = AudioController.bgmContext.currentTime + 0.2;
+        }
+
         this.bgmTimer = scene.time.addEvent({
-            delay: 150, // Tempo der Melodie (150ms pro Note)
-            callback: () => this.playMelodyNote(scene),
+            delay: 50, // Sehr häufig prüfen (alle 50ms)
+            callback: () => this.scheduleLoop(scene),
             callbackScope: this,
             loop: true
         });
     }
 
-    private playMelodyNote(scene: Phaser.Scene) {
-        if (!AudioController.bgmContext) {
-            this.stop();
-            return;
+    private scheduleLoop(scene: Phaser.Scene) {
+        if (!AudioController.bgmContext) return;
+
+        const audioCtx = AudioController.bgmContext;
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
         }
 
-        if (scene.registry.get('isMuted')) return;
+        const now = audioCtx.currentTime;
 
-        if (AudioController.bgmContext.state === 'suspended') {
-            AudioController.bgmContext.resume();
+        // Falls wir hinterherhinken (z.B. Tab im Hintergrund), Zeitstempel resetten
+        if (this.nextNoteTime < now) {
+            this.nextNoteTime = now + 0.1;
         }
 
-        const freq = this.melody[this.noteIndex];
-        this.noteIndex = (this.noteIndex + 1) % this.melody.length;
+        // Alle Töne planen, die in den nächsten 500ms an der Reihe sind
+        // Dadurch ist die Musik völlig immun gegen Framerate-Drops auf physischen iPhones
+        while (this.nextNoteTime < now + 0.5) {
+            const freq = this.melody[this.noteIndex];
+            
+            // Nur abspielen, wenn Ton existiert und nicht gemutet ist
+            if (freq > 0 && !scene.registry.get('isMuted')) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
 
-        if (freq === 0) return;
+                osc.type = 'square'; 
+                osc.frequency.setValueAtTime(freq, this.nextNoteTime);
 
-        const osc = AudioController.bgmContext.createOscillator();
-        const gain = AudioController.bgmContext.createGain();
+                gain.gain.setValueAtTime(0.15, this.nextNoteTime);
+                gain.gain.linearRampToValueAtTime(0, this.nextNoteTime + 0.12);
 
-        // Rechteckwelle für den klassischen SID-Chip-Sound des C64
-        osc.type = 'square'; 
-        
-        // WICHTIG FÜR iOS: 50ms Lookahead beim Scheduling, da iOS Safari 
-        // Events droppt, wenn startTime exakt currentTime ist und der Thread kurz hängt.
-        const startTime = AudioController.bgmContext.currentTime + 0.05;
-        
-        osc.frequency.setValueAtTime(freq, startTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
 
-        // Lautstärke etwas erhöht (0.15) für Handylautsprecher
-        gain.gain.setValueAtTime(0.15, startTime);
-        
-        // Kurzes, perkussives Ausklingen (linear ist robuster auf Safari als exponential)
-        gain.gain.linearRampToValueAtTime(0, startTime + 0.12);
+                osc.start(this.nextNoteTime);
+                osc.stop(this.nextNoteTime + 0.12);
+            }
 
-        osc.connect(gain);
-        gain.connect(AudioController.bgmContext.destination);
-
-        osc.start(startTime);
-        osc.stop(startTime + 0.12);
+            // Nächsten Ton voranschreiten (150ms pro Step)
+            this.noteIndex = (this.noteIndex + 1) % this.melody.length;
+            this.nextNoteTime += 0.15; 
+        }
     }
 
     public playGameOverChiptune(scene: Phaser.Scene) {
