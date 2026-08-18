@@ -32,8 +32,8 @@ export default class AudioController {
         osc.connect(gain);
         gain.connect(AudioController.bgmContext.destination);
         const now = AudioController.bgmContext.currentTime;
-        osc.start(now);
-        osc.stop(now + 0.01);
+        osc.start(now + 0.05);
+        osc.stop(now + 0.06);
     }
 
     public startBackgroundMusic(scene: Phaser.Scene) {
@@ -67,19 +67,24 @@ export default class AudioController {
 
         // Rechteckwelle für den klassischen SID-Chip-Sound des C64
         osc.type = 'square'; 
-        osc.frequency.setValueAtTime(freq, AudioController.bgmContext.currentTime);
+        
+        // WICHTIG FÜR iOS: 50ms Lookahead beim Scheduling, da iOS Safari 
+        // Events droppt, wenn startTime exakt currentTime ist und der Thread kurz hängt.
+        const startTime = AudioController.bgmContext.currentTime + 0.05;
+        
+        osc.frequency.setValueAtTime(freq, startTime);
 
         // Etwas weicher eingestellt (0.1)
-        gain.gain.setValueAtTime(0.1, AudioController.bgmContext.currentTime);
+        gain.gain.setValueAtTime(0.1, startTime);
         
         // Kurzes, perkussives Ausklingen für den "hüpfenden" Rhythmus
-        gain.gain.exponentialRampToValueAtTime(0.001, AudioController.bgmContext.currentTime + 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.12);
 
         osc.connect(gain);
         gain.connect(AudioController.bgmContext.destination);
 
-        osc.start(AudioController.bgmContext.currentTime);
-        osc.stop(AudioController.bgmContext.currentTime + 0.12);
+        osc.start(startTime);
+        osc.stop(startTime + 0.12);
     }
 
     public playGameOverChiptune(scene: Phaser.Scene) {
