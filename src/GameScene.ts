@@ -217,15 +217,23 @@ export default class GameScene extends Phaser.Scene {
     update() {
         if (this.lives <= 0 || this.isPaused) return; // Spiel ist vorbei oder pausiert, nichts mehr tun
 
-        // Touch Input
+        // Touch Input (Phaser intern)
         const pointer = this.input.activePointer;
         const touchLeft = pointer.isDown && pointer.x < this.scale.width / 2;
         const touchRight = pointer.isDown && pointer.x >= this.scale.width / 2;
+        
+        // Touch Input (Externes Trackpad via HTML)
+        const trackpadDir = (window as any).gameMovementDirection || 0;
+        const padLeft = trackpadDir === -1;
+        const padRight = trackpadDir === 1;
 
         // Spielerbewegung mit optionalem Turbo
-        const isMoving = this.cursors.left.isDown || this.cursors.right.isDown || touchLeft || touchRight;
+        const isLeft = this.cursors.left.isDown || touchLeft || padLeft;
+        const isRight = this.cursors.right.isDown || touchRight || padRight;
+        const isMoving = isLeft || isRight;
+        
         // Turbo ist aktiv wenn SHIFT gedrückt wird, oder generell bei Touch-Bedienung
-        const isTurbo = (this.cursors.shift.isDown && isMoving) || (pointer.isDown && isMoving);
+        const isTurbo = (this.cursors.shift.isDown && isMoving) || (pointer.isDown && isMoving) || (trackpadDir !== 0);
         
         // Soundeffekt abspielen, wenn Turbo gerade erst aktiviert wurde
         if (isTurbo && !this.isTurboActive) {
@@ -237,11 +245,11 @@ export default class GameScene extends Phaser.Scene {
 
         const speed = this.isSlowed ? 200 : (isTurbo ? 700 : 400);
 
-        if (this.cursors.left.isDown || touchLeft) {
+        if (isLeft) {
             this.player.setVelocityX(-speed);
             this.player.setFlipX(true);
             this.player.angle = -5 + Math.sin(this.time.now / 100) * 5; // Leichtes Wackeln
-        } else if (this.cursors.right.isDown || touchRight) {
+        } else if (isRight) {
             this.player.setVelocityX(speed);
             this.player.setFlipX(false);
             this.player.angle = 5 + Math.sin(this.time.now / 100) * 5; // Leichtes Wackeln

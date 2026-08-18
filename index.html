@@ -11,9 +11,11 @@
         margin: 0;
         background-color: #0b0410;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
         height: 100vh;
+        touch-action: none; /* Prevent scroll on touch */
       }
       #font-preload {
         font-family: 'Press Start 2P';
@@ -24,8 +26,35 @@
         position: relative;
         width: 800px;
         height: 600px;
+        max-width: 100%;
+        /* Leave some space at bottom for trackpad on mobile */
+        max-height: calc(100vh - 120px); 
         overflow: hidden;
       }
+      #trackpad {
+        display: none;
+        width: 90%;
+        height: 80px;
+        margin-top: 20px;
+        border: 2px solid #ff0000;
+        border-radius: 8px;
+        background: rgba(255, 0, 0, 0.1);
+        color: #ff0000;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px;
+        box-sizing: border-box;
+        font-family: 'Press Start 2P', monospace;
+        font-size: 12px;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      @media (max-width: 768px) {
+        #trackpad {
+          display: flex;
+        }
+      }
+      /* (CRT effekte) */
       .crt::before {
         content: " ";
         display: block;
@@ -51,21 +80,53 @@
         z-index: 3;
         pointer-events: none;
       }
-      @keyframes flicker {
-        0% { opacity: 0.95; }
-        5% { opacity: 0.85; }
-        10% { opacity: 0.95; }
-        15% { opacity: 1; }
-        100% { opacity: 1; }
-      }
-      .crt {
-        /* animation: flicker 0.15s infinite; removed as requested */
-      }
     </style>
   </head>
   <body>
     <div id="font-preload">.</div>
     <div id="app" class="crt"></div>
+    <div id="trackpad">
+      <span>◀</span>
+      <span>SWIPE TO MOVE</span>
+      <span>▶</span>
+    </div>
+    
+    <script>
+      window.gameMovementDirection = 0; // -1 for left, 1 for right, 0 for none
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const trackpad = document.getElementById('trackpad');
+        let touchStartX = null;
+        
+        trackpad.addEventListener('touchstart', (e) => {
+          touchStartX = e.touches[0].clientX;
+        }, { passive: false });
+
+        trackpad.addEventListener('touchmove', (e) => {
+          e.preventDefault(); // Prevent scrolling
+          if (touchStartX === null) return;
+          
+          const currentX = e.touches[0].clientX;
+          const deltaX = currentX - touchStartX;
+          
+          if (deltaX < -15) {
+            window.gameMovementDirection = -1;
+          } else if (deltaX > 15) {
+            window.gameMovementDirection = 1;
+          } else {
+            window.gameMovementDirection = 0;
+          }
+        }, { passive: false });
+
+        const stopTouch = () => {
+          touchStartX = null;
+          window.gameMovementDirection = 0;
+        };
+
+        trackpad.addEventListener('touchend', stopTouch);
+        trackpad.addEventListener('touchcancel', stopTouch);
+      });
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
