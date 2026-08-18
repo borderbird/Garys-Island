@@ -58,13 +58,26 @@ export default class LeaderboardScene extends Phaser.Scene {
         }
 
         // Instructions
-        this.add.text(400, 400, 'ARROWS: Select Letter\nENTER: Submit', {
+        this.add.text(400, 480, 'ARROWS/TOUCH: Select\nENTER/SUBMIT: Save', {
             fontSize: '12px',
             color: '#aaaaaa',
             fontFamily: '"Press Start 2P"',
             align: 'center',
             lineSpacing: 10
         }).setOrigin(0.5);
+
+        // Touch Buttons
+        const upBtn = this.add.text(400, 360, '▲', { fontSize: '40px', color: '#00FFFF' }).setOrigin(0.5).setInteractive();
+        const downBtn = this.add.text(400, 440, '▼', { fontSize: '40px', color: '#00FFFF' }).setOrigin(0.5).setInteractive();
+        const leftBtn = this.add.text(320, 400, '◀', { fontSize: '40px', color: '#FF00FF' }).setOrigin(0.5).setInteractive();
+        const rightBtn = this.add.text(480, 400, '▶', { fontSize: '40px', color: '#FF00FF' }).setOrigin(0.5).setInteractive();
+        const submitBtn = this.add.text(400, 530, '[ SUBMIT ]', { fontSize: '18px', color: '#FFFFFF', fontFamily: '"Press Start 2P"' }).setOrigin(0.5).setInteractive();
+
+        upBtn.on('pointerdown', () => this.changeLetter(1));
+        downBtn.on('pointerdown', () => this.changeLetter(-1));
+        leftBtn.on('pointerdown', () => this.moveCursor(-1));
+        rightBtn.on('pointerdown', () => this.moveCursor(1));
+        submitBtn.on('pointerdown', () => this.submitScore());
 
         this.updateLetters();
 
@@ -170,10 +183,17 @@ export default class LeaderboardScene extends Phaser.Scene {
             }).setOrigin(0.5);
         }
 
-        this.add.text(400, 520, 'PRESS SPACE TO RESTART', {
+        this.add.text(400, 520, 'PRESS SPACE OR TAP TO RESTART', {
             fontSize: '16px',
             color: '#00FFFF',
             fontFamily: '"Press Start 2P"'
         }).setOrigin(0.5).setShadow(0, 0, '#FF00FF', 5, false, true);
+
+        // Touch zum Neustarten
+        this.time.delayedCall(500, () => {
+            this.input.once('pointerdown', () => {
+                if (this.hasSubmitted) this.scene.start('GameScene');
+            });
+        });
     }
 }

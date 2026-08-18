@@ -43,7 +43,7 @@ export default class StartScene extends Phaser.Scene {
         hsText.setShadow(0, 0, '#FF00FF', 8, false, true);
 
         // Steuerung (Tastenbefehle)
-        const controlsText = `STEUERUNG:\n\n< > PFEILTASTEN: Bewegen\nSHIFT: Turbo\nM: Sound An/Aus\nSPACE: Pause\nQ: Beenden (ohne Speichern)`;
+        const controlsText = `STEUERUNG:\n\n< > / TOUCH L/R: Bewegen\nSHIFT: Turbo\nM: Sound An/Aus\nSPACE: Pause\nQ: Beenden`;
         const ctrlTextObj = this.add.text(400, 430, controlsText, {
             fontSize: '16px',
             color: '#ffffff',
@@ -55,7 +55,7 @@ export default class StartScene extends Phaser.Scene {
         ctrlTextObj.setShadow(0, 0, '#FF00FF', 4, false, true);
 
         // Start Text (Blinkend)
-        const startText = this.add.text(400, 550, 'PRESS SPACE TO START', {
+        const startText = this.add.text(400, 550, 'PRESS SPACE OR TAP TO START', {
             fontSize: '20px',
             color: '#00FFFF',
             fontFamily: '"Press Start 2P"',
@@ -85,5 +85,10 @@ export default class StartScene extends Phaser.Scene {
                 this.registry.set('isMuted', isMuted);
             });
         }
+
+        // Touch zum Starten
+        this.input.once('pointerdown', () => {
+            this.scene.start('GameScene', { bgKey: this.bgKey });
+        });
     }
 }

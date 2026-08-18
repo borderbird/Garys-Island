@@ -217,10 +217,15 @@ export default class GameScene extends Phaser.Scene {
     update() {
         if (this.lives <= 0 || this.isPaused) return; // Spiel ist vorbei oder pausiert, nichts mehr tun
 
+        // Touch Input
+        const pointer = this.input.activePointer;
+        const touchLeft = pointer.isDown && pointer.x < this.scale.width / 2;
+        const touchRight = pointer.isDown && pointer.x >= this.scale.width / 2;
+
         // Spielerbewegung mit optionalem Turbo
-        // Turbo ist nur aktiv, wenn SHIFT gedrückt wird UND wir uns bewegen
-        const isMoving = this.cursors.left.isDown || this.cursors.right.isDown;
-        const isTurbo = this.cursors.shift.isDown && isMoving;
+        const isMoving = this.cursors.left.isDown || this.cursors.right.isDown || touchLeft || touchRight;
+        // Turbo ist aktiv wenn SHIFT gedrückt wird, oder generell bei Touch-Bedienung
+        const isTurbo = (this.cursors.shift.isDown && isMoving) || (pointer.isDown && isMoving);
         
         // Soundeffekt abspielen, wenn Turbo gerade erst aktiviert wurde
         if (isTurbo && !this.isTurboActive) {
@@ -232,11 +237,11 @@ export default class GameScene extends Phaser.Scene {
 
         const speed = this.isSlowed ? 200 : (isTurbo ? 700 : 400);
 
-        if (this.cursors.left.isDown) {
+        if (this.cursors.left.isDown || touchLeft) {
             this.player.setVelocityX(-speed);
             this.player.setFlipX(true);
             this.player.angle = -5 + Math.sin(this.time.now / 100) * 5; // Leichtes Wackeln
-        } else if (this.cursors.right.isDown) {
+        } else if (this.cursors.right.isDown || touchRight) {
             this.player.setVelocityX(speed);
             this.player.setFlipX(false);
             this.player.angle = 5 + Math.sin(this.time.now / 100) * 5; // Leichtes Wackeln
