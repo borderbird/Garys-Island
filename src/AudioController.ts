@@ -25,15 +25,13 @@ export default class AudioController {
             AudioController.bgmContext.resume();
         }
         
-        // Spiele einen unhörbaren Ton ab, um Audio auf iOS permanent zu entsperren
-        const osc = AudioController.bgmContext.createOscillator();
-        const gain = AudioController.bgmContext.createGain();
-        gain.gain.value = 0;
-        osc.connect(gain);
-        gain.connect(AudioController.bgmContext.destination);
-        const now = AudioController.bgmContext.currentTime;
-        osc.start(now + 0.05);
-        osc.stop(now + 0.06);
+        // WICHTIG: Leeren Buffer abspielen, um iOS Safari Audio 100% zuverlässig zu entsperren
+        // (Oscillators mit Volume 0 werden von iOS oft wegoptimiert und entsperren nicht!)
+        const buffer = AudioController.bgmContext.createBuffer(1, 1, 22050);
+        const source = AudioController.bgmContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(AudioController.bgmContext.destination);
+        source.start(0);
     }
 
     public startBackgroundMusic(scene: Phaser.Scene) {
@@ -57,6 +55,10 @@ export default class AudioController {
 
         if (scene.registry.get('isMuted')) return;
 
+        if (AudioController.bgmContext.state === 'suspended') {
+            AudioController.bgmContext.resume();
+        }
+
         const freq = this.melody[this.noteIndex];
         this.noteIndex = (this.noteIndex + 1) % this.melody.length;
 
@@ -74,11 +76,11 @@ export default class AudioController {
         
         osc.frequency.setValueAtTime(freq, startTime);
 
-        // Etwas weicher eingestellt (0.1)
-        gain.gain.setValueAtTime(0.1, startTime);
+        // Lautstärke etwas erhöht (0.15) für Handylautsprecher
+        gain.gain.setValueAtTime(0.15, startTime);
         
-        // Kurzes, perkussives Ausklingen für den "hüpfenden" Rhythmus
-        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.12);
+        // Kurzes, perkussives Ausklingen (linear ist robuster auf Safari als exponential)
+        gain.gain.linearRampToValueAtTime(0, startTime + 0.12);
 
         osc.connect(gain);
         gain.connect(AudioController.bgmContext.destination);
