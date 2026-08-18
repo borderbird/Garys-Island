@@ -14,7 +14,9 @@
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        height: 100vh;
+        height: 100dvh; /* dynamic viewport height fixes Safari toolbar issue */
+        padding-bottom: env(safe-area-inset-bottom, 10px); /* Add safe area for iOS */
+        box-sizing: border-box;
         touch-action: none; /* Prevent scroll on touch */
       }
       #font-preload {
@@ -28,7 +30,7 @@
         height: 600px;
         max-width: 100%;
         /* Leave some space at bottom for trackpad on mobile */
-        max-height: calc(100vh - 120px); 
+        max-height: calc(100dvh - 140px); 
         overflow: hidden;
       }
       #trackpad {
