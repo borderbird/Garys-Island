@@ -43,7 +43,10 @@ export default class StartScene extends Phaser.Scene {
         hsText.setShadow(0, 0, '#FF00FF', 8, false, true);
 
         // Steuerung (Tastenbefehle)
-        const controlsText = `STEUERUNG:\n\n< > / TOUCH L/R: Bewegen\nSHIFT: Turbo\nM: Sound An/Aus\nSPACE: Pause\nQ: Beenden`;
+        const isMobile = !this.sys.game.device.os.desktop;
+        const controlsText = isMobile 
+            ? `STEUERUNG:\n\n◀ SWIPE ▶: Bewegen\n(Auto-Turbo aktiv)\n\nTAP: Start`
+            : `STEUERUNG:\n\n< > PFEILE: Bewegen\nSHIFT: Turbo\nM: Sound An/Aus\nSPACE: Pause\nQ: Beenden`;
         const ctrlTextObj = this.add.text(400, 430, controlsText, {
             fontSize: '16px',
             color: '#ffffff',
