@@ -31,8 +31,9 @@ export default class AudioController {
         gain.gain.value = 0;
         osc.connect(gain);
         gain.connect(AudioController.bgmContext.destination);
-        osc.start(0);
-        osc.stop(0.01);
+        const now = AudioController.bgmContext.currentTime;
+        osc.start(now);
+        osc.stop(now + 0.01);
     }
 
     public startBackgroundMusic(scene: Phaser.Scene) {
