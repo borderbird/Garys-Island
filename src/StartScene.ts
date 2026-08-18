@@ -12,6 +12,7 @@ export default class StartScene extends Phaser.Scene {
         this.load.image('bg1', 'assets/bg1.jpg');
         this.load.image('bg2', 'assets/bg2.jpg');
         this.load.image('bg3', 'assets/bg3.jpg');
+        this.load.audio('bgm', 'assets/bgm.wav');
     }
 
     create() {

@@ -2,18 +2,7 @@ import Phaser from 'phaser';
 
 export default class AudioController {
     private static bgmContext: AudioContext | null = null;
-    private bgmTimer: Phaser.Time.TimerEvent | null = null;
-    private noteIndex: number = 0;
-
-    // Giana Sisters inspirierter 32-Step Loop mit Pausen (0)
-    private melody = [
-        // Part 1: C-Moll Bounce
-        261.63, 0, 311.13, 261.63, 0, 392.00, 311.13, 0,
-        261.63, 0, 311.13, 261.63, 0, 392.00, 466.16, 0,
-        // Part 2: G#-Dur / F-Moll Wechsel
-        207.65, 0, 261.63, 207.65, 0, 311.13, 261.63, 0,
-        174.61, 0, 207.65, 174.61, 0, 261.63, 311.13, 0
-    ];
+    private bgmSound: Phaser.Sound.BaseSound | null = null;
 
     constructor() {}
 
@@ -34,66 +23,15 @@ export default class AudioController {
         source.start(0);
     }
 
-    private nextNoteTime: number = 0;
-
     public startBackgroundMusic(scene: Phaser.Scene) {
         AudioController.initContext();
-        if (this.bgmTimer) return;
+        if (this.bgmSound) return;
 
-        this.noteIndex = 0;
-        if (AudioController.bgmContext) {
-            this.nextNoteTime = AudioController.bgmContext.currentTime + 0.2;
-        }
-
-        this.bgmTimer = scene.time.addEvent({
-            delay: 50, // Sehr häufig prüfen (alle 50ms)
-            callback: () => this.scheduleLoop(scene),
-            callbackScope: this,
-            loop: true
-        });
-    }
-
-    private scheduleLoop(scene: Phaser.Scene) {
-        if (!AudioController.bgmContext) return;
-
-        const audioCtx = AudioController.bgmContext;
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-
-        const now = audioCtx.currentTime;
-
-        // Falls wir hinterherhinken (z.B. Tab im Hintergrund), Zeitstempel resetten
-        if (this.nextNoteTime < now) {
-            this.nextNoteTime = now + 0.1;
-        }
-
-        // Alle Töne planen, die in den nächsten 500ms an der Reihe sind
-        // Dadurch ist die Musik völlig immun gegen Framerate-Drops auf physischen iPhones
-        while (this.nextNoteTime < now + 0.5) {
-            const freq = this.melody[this.noteIndex];
-            
-            // Nur abspielen, wenn Ton existiert und nicht gemutet ist
-            if (freq > 0 && !scene.registry.get('isMuted')) {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-
-                osc.type = 'square'; 
-                osc.frequency.setValueAtTime(freq, this.nextNoteTime);
-
-                gain.gain.setValueAtTime(0.15, this.nextNoteTime);
-                gain.gain.linearRampToValueAtTime(0, this.nextNoteTime + 0.12);
-
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-
-                osc.start(this.nextNoteTime);
-                osc.stop(this.nextNoteTime + 0.12);
-            }
-
-            // Nächsten Ton voranschreiten (150ms pro Step)
-            this.noteIndex = (this.noteIndex + 1) % this.melody.length;
-            this.nextNoteTime += 0.15; 
+        // Phaser's Audio System takes care of iOS playback bugs automatically
+        this.bgmSound = scene.sound.add('bgm', { loop: true, volume: 0.15 });
+        
+        if (!scene.registry.get('isMuted')) {
+            this.bgmSound.play();
         }
     }
 
@@ -209,21 +147,22 @@ export default class AudioController {
     }
 
     public pause() {
-        if (this.bgmTimer) {
-            this.bgmTimer.paused = true;
+        if (this.bgmSound && (this.bgmSound as any).isPlaying) {
+            this.bgmSound.pause();
         }
     }
 
     public resume() {
-        if (this.bgmTimer) {
-            this.bgmTimer.paused = false;
+        if (this.bgmSound && (this.bgmSound as any).isPaused) {
+            this.bgmSound.resume();
         }
     }
 
     public stop() {
-        if (this.bgmTimer) {
-            this.bgmTimer.remove();
-            this.bgmTimer = null;
+        if (this.bgmSound) {
+            this.bgmSound.stop();
+            this.bgmSound.destroy();
+            this.bgmSound = null;
         }
     }
 }
